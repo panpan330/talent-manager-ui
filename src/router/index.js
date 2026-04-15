@@ -21,6 +21,11 @@ const router = createRouter({
           name: 'talent',
           // 动态导入刚刚建的页面
           component: () => import('../views/TalentProfile.vue') 
+        },
+        {
+          path: 'dashboard', 
+          name: 'dashboard',
+          component: () => import('../views/DashboardView.vue') 
         }
       ]
     }

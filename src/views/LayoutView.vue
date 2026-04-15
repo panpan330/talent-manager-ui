@@ -10,14 +10,16 @@
           active-text-color="#409eff"
           background-color="#191a23"
           class="el-menu-vertical"
-          default-active="1"
+          :default-active="route.path"
           text-color="#fff"
+          router
         >
-          <el-menu-item index="1">
+          <el-menu-item index="/talent">
             <el-icon><User /></el-icon>
             <span>人才档案管理</span>
           </el-menu-item>
-          <el-menu-item index="2">
+          
+          <el-menu-item index="/dashboard">
             <el-icon><DataLine /></el-icon>
             <span>能力评估看板</span>
           </el-menu-item>
@@ -46,9 +48,11 @@
 
 <script setup>
 import { User, DataLine } from '@element-plus/icons-vue'
-import { useRouter } from 'vue-router'
+// 🔥 把 router 相关的合并成下面这一行就行了：
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
+const route = useRoute()
 const router = useRouter()
 
 // 退出登录逻辑
