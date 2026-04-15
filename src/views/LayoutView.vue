@@ -18,7 +18,8 @@
             <el-icon><DataLine /></el-icon>
             <span>能力评估看板</span>
           </el-menu-item>
-          <el-menu-item index="/talent">
+          
+          <el-menu-item index="/talent" v-if="userRole === 'admin'">
             <el-icon><User /></el-icon>
             <span>人才档案管理</span>
           </el-menu-item>
@@ -75,7 +76,8 @@ import { User, DataLine } from '@element-plus/icons-vue'
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-
+// 在 script 里的顶部加上这行：
+const userRole = localStorage.getItem('role')
 const route = useRoute()
 const router = useRouter()
 

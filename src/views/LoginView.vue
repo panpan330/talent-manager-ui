@@ -6,6 +6,7 @@ import { ref, watch, computed } from 'vue'
 import AnimatedCharacters from '../components/AnimatedCharacters.vue'
 
 import { useRouter } from 'vue-router'
+
 const router = useRouter()
 
 // ==== 表单数据绑定 ====
@@ -65,14 +66,15 @@ async function handleLogin() {
     })
 
     if (res.code === 200) {
-      // 登录成功！
       ElMessage.success('登录成功！欢迎回来。')
-      
-      // 极其关键：把后端发给我们的 JWT 通行证（Token）存到浏览器的本地仓库里
       localStorage.setItem('token', res.data)
       
-      router.push('/')
+      // 🔥 新增：根据输入的账号，发放不同的身份牌！
+      // 咱们先简单模拟：如果账号输入的是 admin，就是超级管理员；其他都是普通用户
+      const role = username.value === 'admin' ? 'admin' : 'user'
+      localStorage.setItem('role', role) 
       
+      router.push('/')
     } else {
       // 密码错误等业务报错（后端返回 500 等）
       formBanner.value = res.msg || '登录失败，请检查账号密码'
