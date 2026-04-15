@@ -11,9 +11,18 @@ const router = createRouter({
       component: LoginView
     },
     {
-      path: '/',      // 根路径，直接指向大本营
+      path: '/',
       name: 'layout',
-      component: LayoutView
+      component: LayoutView,
+      redirect: '/talent', // 默认一进来就展示人才档案页
+      children: [
+        {
+          path: 'talent', // 注意这里不带斜杠
+          name: 'talent',
+          // 动态导入刚刚建的页面
+          component: () => import('../views/TalentProfile.vue') 
+        }
+      ]
     }
   ]
 })

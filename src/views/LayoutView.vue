@@ -36,8 +36,7 @@
 
         <el-main class="main-content">
           <el-card shadow="never" class="work-area">
-            <h1>这是系统的主工作区</h1>
-            <p>以后你写的人才表格、可视化图表，都会渲染在这里面！</p>
+            <router-view></router-view>
           </el-card>
         </el-main>
       </el-container>
