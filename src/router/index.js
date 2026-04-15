@@ -14,17 +14,18 @@ const router = createRouter({
       path: '/',
       name: 'layout',
       component: LayoutView,
-      redirect: '/talent', // 默认一进来就展示人才档案页
+      redirect: '/dashboard', // 建议把默认首页改成 dashboard
       children: [
         {
-          path: 'talent', // 注意这里不带斜杠
+          path: 'talent', 
           name: 'talent',
-          // 动态导入刚刚建的页面
+          meta: { title: '人才档案管理' }, // 🔥 新增身份证
           component: () => import('../views/TalentProfile.vue') 
         },
         {
           path: 'dashboard', 
           name: 'dashboard',
+          meta: { title: '能力评估看板' }, // 🔥 新增身份证
           component: () => import('../views/DashboardView.vue') 
         }
       ]
