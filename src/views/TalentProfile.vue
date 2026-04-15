@@ -17,6 +17,7 @@
         </el-form-item>
       </el-form>
       <div class="action-btns">
+        <el-button type="warning" plain :icon="Download" @click="handleExport">导出 Excel</el-button>
         <el-button type="success" :icon="Plus" @click="handleAdd">新增人才档案</el-button>
       </div>
     </div>
@@ -86,9 +87,9 @@
         </el-form-item>
         <el-form-item label="就业状态" prop="employmentStatus">
           <el-radio-group v-model="form.employmentStatus">
-            <el-radio :label="0">在校培养</el-radio>
-            <el-radio :label="1">科研院所</el-radio>
-            <el-radio :label="2">企业就职</el-radio>
+            <el-radio :value="0">在校培养</el-radio>
+            <el-radio :value="1">科研院所</el-radio>
+            <el-radio :value="2">企业就职</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
@@ -103,11 +104,12 @@
 </template>
 
 <script setup>
-import { Search, Plus } from '@element-plus/icons-vue'
+// 🔥 注意这里多引入了 Download 图标
+import { Search, Plus, Download } from '@element-plus/icons-vue'
 import { ref, onMounted, reactive, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '../utils/request'
-import * as echarts from 'echarts' // 🔥 引入 ECharts
+import * as echarts from 'echarts'
 
 // ==== 数据定义 ====
 const tableData = ref([])
@@ -144,7 +146,7 @@ const loadData = async () => {
   }
 }
 
-// 2-5. 增删改查逻辑保持不变...
+// 2. 增删改查
 const handleAdd = () => { dialogTitle.value = '新增人才档案'; form.value = { id: null, realName: '', primaryDomain: null, educationLevel: '', researchDirection: '', employmentStatus: 0 }; dialogVisible.value = true }
 const handleEdit = (row) => { dialogTitle.value = '编辑人才档案'; form.value = JSON.parse(JSON.stringify(row)); dialogVisible.value = true }
 const handleSave = async () => {
@@ -168,35 +170,54 @@ const handleDelete = (id) => {
   })
 }
 
-// 🔥 6. 核心黑科技：展示雷达图
+// 🔥 3. 核心黑科技：导出 Excel
+const handleExport = async () => {
+  ElMessage.info('正在生成 Excel 文件，请稍候...')
+  try {
+    // 强制告诉 axios，我们要接收的是二进制文件流 (blob)
+    const res = await request.get('/sys-talent-profile/export', { responseType: 'blob' })
+    
+    // 创造一个虚拟的“下载链接”
+    const blob = new Blob([res])
+    const downloadElement = document.createElement('a')
+    const href = window.URL.createObjectURL(blob)
+    
+    // 触发点击下载
+    downloadElement.href = href
+    downloadElement.download = '交叉人才档案汇总.xlsx' // 设定的下载文件名
+    document.body.appendChild(downloadElement)
+    downloadElement.click()
+    
+    // 下载完清理垃圾，释放内存
+    document.body.removeChild(downloadElement)
+    window.URL.revokeObjectURL(href)
+    ElMessage.success('Excel 导出成功！')
+  } catch (error) {
+    console.error(error)
+    ElMessage.error('导出失败，请检查后端服务是否正常')
+  }
+}
+
+// 4. 展示雷达图
 const showSkillRadar = (row) => {
   currentTalentName.value = row.realName
-  radarVisible.value = true // 弹窗开启
-
-  // 等待 DOM 渲染完毕后，再挂载 ECharts
+  radarVisible.value = true
   nextTick(() => {
-    if (myChart) myChart.dispose() // 销毁旧图表防止内存泄漏
+    if (myChart) myChart.dispose()
     const chartDom = document.getElementById('skill-chart')
     myChart = echarts.init(chartDom)
-
-    // 智能伪造数据逻辑：根据不同的领域，生成不同维度的能力值 (满分100)
     let skillData = []
     let colorColor = ''
     if (row.primaryDomain === 0) {
-      // 计算机科学：编程和算法极高，临床较低
       skillData = [95, 90, 85, 40, 50, 70]
-      colorColor = '#409EFF' // 蓝色
+      colorColor = '#409EFF'
     } else if (row.primaryDomain === 1) {
-      // 康复医学：临床和生理学极高，编程较低
       skillData = [30, 40, 60, 95, 90, 50]
-      colorColor = '#67C23A' // 绿色
+      colorColor = '#67C23A'
     } else {
-      // 深度交叉：全能六边形战士
       skillData = [88, 85, 80, 85, 82, 85]
-      colorColor = '#E6A23C' // 橙黄色
+      colorColor = '#E6A23C'
     }
-
-    // ECharts 配置项
     const option = {
       tooltip: { trigger: 'item' },
       radar: {
@@ -220,7 +241,7 @@ const showSkillRadar = (row) => {
               value: skillData,
               name: row.realName,
               itemStyle: { color: colorColor },
-              areaStyle: { color: colorColor, opacity: 0.3 } // 填充半透明颜色
+              areaStyle: { color: colorColor, opacity: 0.3 }
             }
           ]
         }
