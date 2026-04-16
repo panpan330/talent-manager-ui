@@ -28,6 +28,12 @@ const router = createRouter({
           name: 'dashboard',
           meta: { title: '能力评估看板' }, // 🔥 新增身份证
           component: () => import('../views/DashboardView.vue') 
+        },
+        {
+          path: 'match', 
+          name: 'match',
+          meta: { title: '智能人才撮合', requireAdmin: true }, // 需要管理员权限
+          component: () => import('../views/SmartMatch.vue') 
         }
       ]
     }

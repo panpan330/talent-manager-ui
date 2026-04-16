@@ -23,6 +23,10 @@
             <el-icon><User /></el-icon>
             <span>人才档案管理</span>
           </el-menu-item>
+          <el-menu-item index="/match" v-if="userRole === 'admin'">
+            <el-icon><Aim /></el-icon>
+            <span>智能人才撮合</span>
+          </el-menu-item>
         </el-menu>
       </el-aside>
 
@@ -72,7 +76,7 @@
 </template>
 
 <script setup>
-import { User, DataLine } from '@element-plus/icons-vue'
+import { User, DataLine, Aim } from '@element-plus/icons-vue' // 加了 Aim 图标
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
