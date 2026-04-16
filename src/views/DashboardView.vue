@@ -1,64 +1,94 @@
 <template>
   <div class="dashboard-container">
-    <el-row :gutter="20" class="stat-row">
+    <el-row :gutter="20" class="stat-cards">
       <el-col :span="6">
-        <el-card shadow="hover" class="stat-card blue-card">
-          <div class="stat-icon"><el-icon><User /></el-icon></div>
-          <div class="stat-info">
-            <h3>系统人才总数</h3>
-            <h2>1,284 <span class="unit">人</span></h2>
+        <el-card shadow="hover" class="data-card" v-loading="loading">
+          <div class="card-content">
+            <div class="icon-wrapper bg-blue">
+              <el-icon><User /></el-icon>
+            </div>
+            <div class="data-info">
+              <div class="data-title">系统人才总数</div>
+              <div class="data-value">
+                <span class="num">{{ stats.total }}</span>
+                <span class="unit">人</span>
+              </div>
+            </div>
           </div>
         </el-card>
       </el-col>
+
       <el-col :span="6">
-        <el-card shadow="hover" class="stat-card green-card">
-          <div class="stat-icon"><el-icon><Cpu /></el-icon></div>
-          <div class="stat-info">
-            <h3>计算机科学领域</h3>
-            <h2>452 <span class="unit">人</span></h2>
+        <el-card shadow="hover" class="data-card" v-loading="loading">
+          <div class="card-content">
+            <div class="icon-wrapper bg-green">
+              <el-icon><Monitor /></el-icon>
+            </div>
+            <div class="data-info">
+              <div class="data-title">计算机科学领域</div>
+              <div class="data-value">
+                <span class="num">{{ stats.csCount }}</span>
+                <span class="unit">人</span>
+              </div>
+            </div>
           </div>
         </el-card>
       </el-col>
+
       <el-col :span="6">
-        <el-card shadow="hover" class="stat-card purple-card">
-          <div class="stat-icon"><el-icon><FirstAidKit /></el-icon></div>
-          <div class="stat-info">
-            <h3>康复医学领域</h3>
-            <h2>386 <span class="unit">人</span></h2>
+        <el-card shadow="hover" class="data-card" v-loading="loading">
+          <div class="card-content">
+            <div class="icon-wrapper bg-purple">
+              <el-icon><FirstAidKit /></el-icon>
+            </div>
+            <div class="data-info">
+              <div class="data-title">康复医学领域</div>
+              <div class="data-value">
+                <span class="num">{{ stats.rehabCount }}</span>
+                <span class="unit">人</span>
+              </div>
+            </div>
           </div>
         </el-card>
       </el-col>
+
       <el-col :span="6">
-        <el-card shadow="hover" class="stat-card orange-card">
-          <div class="stat-icon"><el-icon><Connection /></el-icon></div>
-          <div class="stat-info">
-            <h3>深度交叉领域</h3>
-            <h2>446 <span class="unit">人</span></h2>
+        <el-card shadow="hover" class="data-card" v-loading="loading">
+          <div class="card-content">
+            <div class="icon-wrapper bg-orange">
+              <el-icon><Connection /></el-icon>
+            </div>
+            <div class="data-info">
+              <div class="data-title">深度交叉领域</div>
+              <div class="data-value">
+                <span class="num">{{ stats.crossCount }}</span>
+                <span class="unit">人</span>
+              </div>
+            </div>
           </div>
         </el-card>
       </el-col>
     </el-row>
 
-    <el-row :gutter="20" class="chart-row">
-      <el-col :span="10">
-        <el-card shadow="never" class="chart-card">
+    <el-row :gutter="20" class="chart-cards">
+      <el-col :span="12">
+        <el-card shadow="never" class="chart-box">
           <template #header>
-            <div class="card-header">
-              <span>人才去向分布</span>
-            </div>
+            <span style="font-weight: bold;">人才去向分布 (待开发)</span>
           </template>
-          <div id="statusChart" class="chart-box"></div>
+          <div class="empty-chart">
+            <el-empty description="ECharts 饼图占位" />
+          </div>
         </el-card>
       </el-col>
-      
-      <el-col :span="14">
-        <el-card shadow="never" class="chart-card">
+      <el-col :span="12">
+        <el-card shadow="never" class="chart-box">
           <template #header>
-            <div class="card-header">
-              <span>三大领域核心能力均值对比</span>
-            </div>
+            <span style="font-weight: bold;">三大领域核心能力均值对比 (待开发)</span>
           </template>
-          <div id="domainChart" class="chart-box"></div>
+          <div class="empty-chart">
+             <el-empty description="ECharts 柱状图/折线图占位" />
+          </div>
         </el-card>
       </el-col>
     </el-row>
@@ -66,134 +96,125 @@
 </template>
 
 <script setup>
-import { User, Cpu, FirstAidKit, Connection } from '@element-plus/icons-vue'
-import { onMounted, onUnmounted, nextTick } from 'vue'
-import * as echarts from 'echarts'
+import { ref, onMounted } from 'vue'
+import request from '../utils/request'
+import { User, Monitor, FirstAidKit, Connection } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 
-// 图表实例
-let statusChartInstance = null
-let domainChartInstance = null
+// 加载状态，用于显示 Loading 动画
+const loading = ref(true)
 
-// 初始化饼图 (人才去向)
-const initStatusChart = () => {
-  const chartDom = document.getElementById('statusChart')
-  statusChartInstance = echarts.init(chartDom)
-  const option = {
-    tooltip: { trigger: 'item', formatter: '{a} <br/>{b} : {c} ({d}%)' },
-    legend: { bottom: '5%', left: 'center' },
-    color: ['#909399', '#67C23A', '#F56C6C'],
-    series: [
-      {
-        name: '就业状态',
-        type: 'pie',
-        radius: ['40%', '70%'],
-        avoidLabelOverlap: false,
-        itemStyle: {
-          borderRadius: 10,
-          borderColor: '#fff',
-          borderWidth: 2
-        },
-        label: { show: false, position: 'center' },
-        emphasis: {
-          label: { show: true, fontSize: 20, fontWeight: 'bold' }
-        },
-        labelLine: { show: false },
-        data: [
-          { value: 580, name: '在校培养' },
-          { value: 420, name: '科研院所' },
-          { value: 284, name: '企业就职' }
-        ]
-      }
-    ]
-  }
-  statusChartInstance.setOption(option)
-}
-
-// 初始化柱状图 (领域能力对比)
-const initDomainChart = () => {
-  const chartDom = document.getElementById('domainChart')
-  domainChartInstance = echarts.init(chartDom)
-  const option = {
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-    legend: { data: ['计算机科学', '康复医学', '深度交叉'] },
-    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-    xAxis: {
-      type: 'category',
-      data: ['编程开发', '算法设计', '临床评估', '生理学基础', '硬件交互']
-    },
-    yAxis: { type: 'value', max: 100 },
-    series: [
-      {
-        name: '计算机科学',
-        type: 'bar',
-        barWidth: 15,
-        itemStyle: { color: '#409EFF', borderRadius: [5, 5, 0, 0] },
-        data: [92, 88, 30, 45, 60]
-      },
-      {
-        name: '康复医学',
-        type: 'bar',
-        barWidth: 15,
-        itemStyle: { color: '#9C27B0', borderRadius: [5, 5, 0, 0] },
-        data: [25, 35, 95, 90, 40]
-      },
-      {
-        name: '深度交叉',
-        type: 'bar',
-        barWidth: 15,
-        itemStyle: { color: '#E6A23C', borderRadius: [5, 5, 0, 0] },
-        data: [85, 82, 80, 85, 88]
-      }
-    ]
-  }
-  domainChartInstance.setOption(option)
-}
-
-// 页面挂载时渲染图表，并在窗口缩放时自适应
-onMounted(() => {
-  nextTick(() => {
-    initStatusChart()
-    initDomainChart()
-  })
-  window.addEventListener('resize', handleResize)
+// 核心数据模型（初始值为 0，避免页面刚刷新时白屏闪烁）
+const stats = ref({
+  total: 0,
+  csCount: 0,
+  rehabCount: 0,
+  crossCount: 0
 })
 
-const handleResize = () => {
-  if (statusChartInstance) statusChartInstance.resize()
-  if (domainChartInstance) domainChartInstance.resize()
+// 🔥 向后端大厨（DashboardController）要真实数据的方法
+const fetchDashboardStats = async () => {
+  loading.value = true
+  try {
+    const res = await request.get('/dashboard/stats')
+    if (res.code === 200) {
+      // 拿到真实数据，自动覆盖响应式变量，Vue 会自动把新数字渲染到网页上！
+      stats.value = res.data
+    } else {
+      ElMessage.error(res.msg || '获取大盘数据失败')
+    }
+  } catch (error) {
+    console.error('大盘数据接口异常', error)
+    ElMessage.error('无法连接到服务器')
+  } finally {
+    // 无论成功还是失败，都把加载动画关掉
+    loading.value = false
+  }
 }
 
-onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
-  if (statusChartInstance) statusChartInstance.dispose()
-  if (domainChartInstance) domainChartInstance.dispose()
+// 页面一挂载（打开），就立刻去拉取数据
+onMounted(() => {
+  fetchDashboardStats()
 })
 </script>
 
 <style scoped>
-.dashboard-container { padding: 10px; }
-.stat-row { margin-bottom: 20px; }
-.stat-card { 
-  display: flex; align-items: center; border-radius: 12px; border: none;
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+.dashboard-container {
+  padding: 10px;
 }
-:deep(.el-card__body) { display: flex; align-items: center; width: 100%; padding: 20px; }
-.stat-icon {
-  width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  font-size: 30px; color: #fff; margin-right: 15px;
+
+.stat-cards {
+  margin-bottom: 20px;
 }
-.stat-info h3 { margin: 0; font-size: 14px; color: #909399; font-weight: normal; }
-.stat-info h2 { margin: 5px 0 0; font-size: 28px; color: #303133; }
-.unit { font-size: 14px; color: #909399; font-weight: normal; }
 
-/* 各种颜色的卡片图标背景 */
-.blue-card .stat-icon { background: linear-gradient(135deg, #409EFF, #73b3fb); box-shadow: 0 4px 12px rgba(64,158,255,0.3); }
-.green-card .stat-icon { background: linear-gradient(135deg, #67C23A, #95d475); box-shadow: 0 4px 12px rgba(103,194,58,0.3); }
-.purple-card .stat-icon { background: linear-gradient(135deg, #9C27B0, #d06ae0); box-shadow: 0 4px 12px rgba(156,39,176,0.3); }
-.orange-card .stat-icon { background: linear-gradient(135deg, #E6A23C, #f3d19e); box-shadow: 0 4px 12px rgba(230,162,60,0.3); }
+.data-card {
+  border-radius: 12px;
+  border: none;
+  background: #fff;
+}
 
-/* 图表区域 */
-.chart-card { border-radius: 12px; }
-.card-header { font-weight: bold; color: #303133; }
-.chart-box { height: 350px; width: 100%; }
+.card-content {
+  display: flex;
+  align-items: center;
+}
+
+.icon-wrapper {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 28px;
+  color: white;
+  margin-right: 20px;
+  flex-shrink: 0;
+}
+
+/* 4 种酷炫的图标背景色 */
+.bg-blue { background: linear-gradient(135deg, #409EFF, #8cc5ff); box-shadow: 0 4px 10px rgba(64,158,255,0.3); }
+.bg-green { background: linear-gradient(135deg, #67C23A, #a0cfff); box-shadow: 0 4px 10px rgba(103,194,58,0.3); }
+.bg-purple { background: linear-gradient(135deg, #b37feb, #d3adf7); box-shadow: 0 4px 10px rgba(179,127,235,0.3); }
+.bg-orange { background: linear-gradient(135deg, #E6A23C, #f3d19e); box-shadow: 0 4px 10px rgba(230,162,60,0.3); }
+
+.data-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.data-title {
+  font-size: 14px;
+  color: #909399;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.data-value {
+  display: flex;
+  align-items: baseline;
+}
+
+.num {
+  font-size: 28px;
+  font-weight: bold;
+  color: #303133;
+  margin-right: 5px;
+}
+
+.unit {
+  font-size: 13px;
+  color: #909399;
+}
+
+.chart-box {
+  min-height: 400px;
+  border-radius: 8px;
+}
+
+.empty-chart {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 300px;
+}
 </style>
