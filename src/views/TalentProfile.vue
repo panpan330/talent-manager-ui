@@ -1,271 +1,258 @@
 <template>
   <div class="talent-container">
-    <div class="toolbar">
-      <el-form :inline="true" :model="searchForm" class="search-form">
+    <el-card shadow="never" class="search-box">
+      <el-form :inline="true" :model="queryParams">
         <el-form-item label="人才姓名">
-          <el-input v-model="searchForm.realName" placeholder="请输入姓名" clearable @clear="loadData"></el-input>
+          <el-input v-model="queryParams.realName" placeholder="输入姓名搜索" clearable @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="主攻领域">
-          <el-select v-model="searchForm.primaryDomain" placeholder="全部领域" clearable style="width: 150px" @change="loadData">
-            <el-option label="计算机科学" :value="0"></el-option>
-            <el-option label="康复医学" :value="1"></el-option>
-            <el-option label="深度交叉" :value="2"></el-option>
+          <el-select v-model="queryParams.primaryDomain" placeholder="全部" clearable style="width: 150px">
+            <el-option label="计算机科学" :value="0" />
+            <el-option label="康复医学" :value="1" />
+            <el-option label="深度交叉" :value="2" />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :icon="Search" @click="loadData">搜索</el-button>
+          <el-button type="primary" icon="Search" @click="handleQuery">查询</el-button>
+          <el-button icon="Refresh" @click="resetQuery">重置</el-button>
         </el-form-item>
       </el-form>
-      <div class="action-btns">
-        <el-button type="warning" plain :icon="Download" @click="handleExport">导出 Excel</el-button>
-        <el-button type="success" :icon="Plus" @click="handleAdd">新增人才档案</el-button>
-      </div>
+    </el-card>
+
+    <div class="action-bar">
+      <el-button type="primary" icon="Plus" @click="handleAdd">新增人才</el-button>
+      <el-button type="success" icon="Download" @click="handleExport">导出数据 (EasyExcel)</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="tableData" style="width: 100%" border stripe highlight-current-row>
-      <el-table-column prop="id" label="ID" width="70" align="center" />
-      <el-table-column prop="realName" label="姓名" width="100" />
-      <el-table-column prop="primaryDomain" label="主攻领域" width="130" align="center">
+    <el-table :data="talentList" v-loading="loading" border stripe style="width: 100%">
+      <el-table-column prop="id" label="ID" width="80" align="center" />
+      <el-table-column prop="realName" label="姓名" width="120" align="center" />
+      <el-table-column label="主攻领域" width="150" align="center">
         <template #default="scope">
-          <el-tag v-if="scope.row.primaryDomain === 0" type="primary" effect="light">计算机科学</el-tag>
-          <el-tag v-else-if="scope.row.primaryDomain === 1" type="success" effect="light">康复医学</el-tag>
-          <el-tag v-else type="warning" effect="light">深度交叉</el-tag>
+          <el-tag :type="getDomainTag(scope.row.primaryDomain)">
+            {{ getDomainName(scope.row.primaryDomain) }}
+          </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="educationLevel" label="最高学历" width="100" align="center" />
-      <el-table-column prop="researchDirection" label="主要研究方向" min-width="180" show-overflow-tooltip />
-      <el-table-column prop="employmentStatus" label="就业状态" width="120" align="center">
+      <el-table-column prop="researchDirection" label="研究方向" min-width="200" show-overflow-tooltip />
+      <el-table-column prop="phone" label="联系电话" width="150" align="center" />
+      <el-table-column label="操作" width="280" fixed="right" align="center">
         <template #default="scope">
-          <el-tag v-if="scope.row.employmentStatus === 0" type="info">在校培养</el-tag>
-          <el-tag v-else-if="scope.row.employmentStatus === 1" type="success">科研院所</el-tag>
-          <el-tag v-else type="danger">企业就职</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="220" align="center" fixed="right">
-        <template #default="scope">
-          <el-button size="small" type="primary" link @click="handleEdit(scope.row)">编辑</el-button>
-          <el-button size="small" type="warning" link @click="showSkillRadar(scope.row)">技能画像</el-button>
-          <el-button size="small" type="danger" link @click="handleDelete(scope.row.id)">删除</el-button>
+          <el-button size="small" type="primary" link icon="Edit" @click="handleUpdate(scope.row)">修改</el-button>
+          <el-button size="small" type="warning" link icon="PieChart" @click="handleShowRadar(scope.row)">技能画像</el-button>
+          <el-button size="small" type="danger" link icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <div class="pagination-box">
-      <el-pagination background layout="total, prev, pager, next" :total="tableData.length" />
-    </div>
-
-    <el-dialog
-      v-model="radarVisible"
-      :title="`【${currentTalentName}】的多维能力评估图`"
-      width="600px"
-      @closed="disposeChart"
-    >
-      <div id="skill-chart" style="width: 100%; height: 400px;"></div>
-    </el-dialog>
-
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px" destroy-on-close>
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="100px" style="padding-right: 20px;">
-        <el-form-item label="真实姓名" prop="realName">
-          <el-input v-model="form.realName" placeholder="请输入人才真实姓名" />
+    <el-dialog :title="dialogTitle" v-model="dialogVisible" width="500px">
+      <el-form :model="form" label-width="80px">
+        <el-form-item label="真实姓名">
+          <el-input v-model="form.realName" placeholder="请输入姓名" />
         </el-form-item>
-        <el-form-item label="主攻领域" prop="primaryDomain">
-          <el-select v-model="form.primaryDomain" placeholder="请选择主攻领域" style="width: 100%">
-            <el-option label="计算机科学" :value="0"></el-option>
-            <el-option label="康复医学" :value="1"></el-option>
-            <el-option label="深度交叉" :value="2"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="最高学历" prop="educationLevel">
-          <el-select v-model="form.educationLevel" placeholder="请选择学历" style="width: 100%">
-            <el-option label="本科" value="本科"></el-option>
-            <el-option label="硕士" value="硕士"></el-option>
-            <el-option label="博士" value="博士"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="研究方向" prop="researchDirection">
-          <el-input v-model="form.researchDirection" type="textarea" placeholder="如：脑机接口、康复机器人、运动数据分析" />
-        </el-form-item>
-        <el-form-item label="就业状态" prop="employmentStatus">
-          <el-radio-group v-model="form.employmentStatus">
-            <el-radio :value="0">在校培养</el-radio>
-            <el-radio :value="1">科研院所</el-radio>
-            <el-radio :value="2">企业就职</el-radio>
+        <el-form-item label="主攻领域">
+          <el-radio-group v-model="form.primaryDomain">
+            <el-radio :label="0">计算机科学</el-radio>
+            <el-radio :label="1">康复医学</el-radio>
+            <el-radio :label="2">深度交叉</el-radio>
           </el-radio-group>
+        </el-form-item>
+        <el-form-item label="联系电话">
+          <el-input v-model="form.phone" placeholder="请输入电话" />
+        </el-form-item>
+        <el-form-item label="研究方向">
+          <el-input v-model="form.researchDirection" type="textarea" placeholder="简述其科研方向" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="dialogVisible = false">取 消</el-button>
-          <el-button type="primary" @click="handleSave">确 认 保 存</el-button>
-        </span>
+        <el-button @click="dialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="submitForm">确 定</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog :title="radarTitle" v-model="radarVisible" width="600px" center destroy-on-close>
+      <div id="radarChart" style="width: 100%; height: 400px;"></div>
+      <template #footer>
+        <div style="font-size: 12px; color: #909399;">数据来源：实时数据库 AHP 权重记录</div>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-// 🔥 注意这里多引入了 Download 图标
-import { Search, Plus, Download } from '@element-plus/icons-vue'
-import { ref, onMounted, reactive, nextTick } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, reactive, onMounted, nextTick } from 'vue'
+import { Search, Refresh, Plus, Download, Edit, PieChart, Delete } from '@element-plus/icons-vue'
 import request from '../utils/request'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 
-// ==== 数据定义 ====
-const tableData = ref([])
+// --- 数据定义 ---
 const loading = ref(false)
+const talentList = ref([])
+const queryParams = reactive({
+  realName: '',
+  primaryDomain: null
+})
+
+// 表单弹窗控制
 const dialogVisible = ref(false)
-const dialogTitle = ref('新增人才档案')
-const formRef = ref(null)
+const dialogTitle = ref('')
+const form = reactive({
+  id: null,
+  realName: '',
+  primaryDomain: 0,
+  phone: '',
+  researchDirection: ''
+})
 
-const searchForm = reactive({ realName: '', primaryDomain: null })
-const form = ref({ id: null, realName: '', primaryDomain: null, educationLevel: '', researchDirection: '', employmentStatus: 0 })
-const rules = {
-  realName: [{ required: true, message: '请输入真实姓名', trigger: 'blur' }],
-  primaryDomain: [{ required: true, message: '请选择主攻领域', trigger: 'change' }]
-}
-
-// ==== 雷达图专项数据 ====
+// 雷达图弹窗控制
 const radarVisible = ref(false)
-const currentTalentName = ref('')
-let myChart = null
+const radarTitle = ref('')
 
-// ==== 方法逻辑 ====
+// --- 核心方法 ---
 
 // 1. 获取列表数据
-const loadData = async () => {
+const getList = async () => {
   loading.value = true
   try {
     const res = await request.get('/sys-talent-profile/list')
-    if (res.code === 200) tableData.value = res.data
-    else ElMessage.error(res.msg || '获取数据失败')
+    if (res.code === 200) {
+      talentList.value = res.data
+    }
   } catch (error) {
-    ElMessage.error('无法连接到后端服务器')
+    console.error(error)
   } finally {
     loading.value = false
   }
 }
 
-// 2. 增删改查
-const handleAdd = () => { dialogTitle.value = '新增人才档案'; form.value = { id: null, realName: '', primaryDomain: null, educationLevel: '', researchDirection: '', employmentStatus: 0 }; dialogVisible.value = true }
-const handleEdit = (row) => { dialogTitle.value = '编辑人才档案'; form.value = JSON.parse(JSON.stringify(row)); dialogVisible.value = true }
-const handleSave = async () => {
-  if (!formRef.value) return
-  await formRef.value.validate(async (valid) => {
-    if (valid) {
-      try {
-        const res = await request.post('/sys-talent-profile/save', form.value)
-        if (res.code === 200) { ElMessage.success('保存成功'); dialogVisible.value = false; loadData() } 
-        else ElMessage.error(res.msg || '保存失败')
-      } catch (error) { ElMessage.error('请求后端失败') }
+// 2. 搜索与重置
+const handleQuery = () => {
+  // 此处可根据 queryParams 进行前端过滤或向后端发分页带条件请求
+  getList()
+}
+const resetQuery = () => {
+  queryParams.realName = ''
+  queryParams.primaryDomain = null
+  getList()
+}
+
+// 3. 新增/修改操作
+const handleAdd = () => {
+  dialogTitle.value = '录入人才档案'
+  Object.assign(form, { id: null, realName: '', primaryDomain: 0, phone: '', researchDirection: '' })
+  dialogVisible.value = true
+}
+const handleUpdate = (row) => {
+  dialogTitle.value = '修改人才信息'
+  Object.assign(form, row)
+  dialogVisible.value = true
+}
+
+// 提交表单（调用后端规范化后的 saveOrUpdate）
+const submitForm = async () => {
+  const res = await request.post('/sys-talent-profile/save', form)
+  if (res.code === 200) {
+    ElMessage.success('操作成功')
+    dialogVisible.value = false
+    getList()
+  }
+}
+
+// 4. 删除操作（带二次确认，体现企业级严谨）
+const handleDelete = (row) => {
+  ElMessageBox.confirm(`确定要永久删除人才 [${row.realName}] 的档案吗？`, '警告', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => {
+    const res = await request.delete(`/sys-talent-profile/${row.id}`)
+    if (res.code === 200) {
+      ElMessage.success('删除成功')
+      getList()
     }
   })
 }
-const handleDelete = (id) => {
-  ElMessageBox.confirm('确定要删除该人才档案吗？', '警告', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }).then(async () => {
-    try {
-      const res = await request.delete(`/sys-talent-profile/${id}`)
-      if (res.code === 200) { ElMessage.success('删除成功'); loadData() }
-    } catch (error) { ElMessage.error('删除操作失败') }
-  })
+
+// 5. 导出 Excel（直接调用后端 EasyExcel 接口）
+const handleExport = () => {
+  window.open('http://localhost:8080/sys-talent-profile/export', '_blank')
 }
 
-// 🔥 3. 核心黑科技：导出 Excel
-const handleExport = async () => {
-  ElMessage.info('正在生成 Excel 文件，请稍候...')
+// 🔥 6. 核心：加载真实雷达图数据
+const handleShowRadar = async (row) => {
+  radarTitle.value = `[${row.realName}] 核心技能画像`
+  radarVisible.value = true
+  
   try {
-    // 强制告诉 axios，我们要接收的是二进制文件流 (blob)
-    const res = await request.get('/sys-talent-profile/export', { responseType: 'blob' })
-    
-    // 创造一个虚拟的“下载链接”
-    const blob = new Blob([res])
-    const downloadElement = document.createElement('a')
-    const href = window.URL.createObjectURL(blob)
-    
-    // 触发点击下载
-    downloadElement.href = href
-    downloadElement.download = '交叉人才档案汇总.xlsx' // 设定的下载文件名
-    document.body.appendChild(downloadElement)
-    downloadElement.click()
-    
-    // 下载完清理垃圾，释放内存
-    document.body.removeChild(downloadElement)
-    window.URL.revokeObjectURL(href)
-    ElMessage.success('Excel 导出成功！')
+    // 调用后端规范化的技能查询接口
+    const res = await request.get(`/sys-talent-skill/talent/${row.id}`)
+    if (res.code === 200 && res.data) {
+      const skills = res.data
+      
+      // 必须在 nextTick 中初始化，确保 DOM 容器已加载
+      await nextTick()
+      const chartDom = document.getElementById('radarChart')
+      const myChart = echarts.init(chartDom)
+      
+      const option = {
+        radar: {
+          indicator: [
+            { name: '编程开发', max: 100 },
+            { name: '算法设计', max: 100 },
+            { name: '临床评估', max: 100 },
+            { name: '生理基础', max: 100 },
+            { name: '硬件交互', max: 100 }
+          ],
+          shape: 'circle',
+          splitNumber: 5,
+          axisName: { color: '#409EFF' },
+          splitLine: { lineStyle: { color: 'rgba(64, 158, 255, 0.2)' } },
+          splitArea: { areaStyle: { color: ['#f5f7fa', '#fff'] } }
+        },
+        series: [{
+          type: 'radar',
+          data: [{
+            value: [
+              skills.devScore, 
+              skills.algoScore, 
+              skills.clinicalScore, 
+              skills.physioScore, 
+              skills.hardwareScore
+            ],
+            name: '技能分值',
+            areaStyle: { color: 'rgba(64, 158, 255, 0.4)' },
+            lineStyle: { color: '#409EFF', width: 2 },
+            itemStyle: { color: '#409EFF' }
+          }]
+        }]
+      }
+      myChart.setOption(option)
+    } else {
+      ElMessage.warning('该人员尚未录入详细技能分值')
+    }
   } catch (error) {
     console.error(error)
-    ElMessage.error('导出失败，请检查后端服务是否正常')
   }
 }
 
-// 4. 展示雷达图
-const showSkillRadar = (row) => {
-  currentTalentName.value = row.realName
-  radarVisible.value = true
-  nextTick(() => {
-    if (myChart) myChart.dispose()
-    const chartDom = document.getElementById('skill-chart')
-    myChart = echarts.init(chartDom)
-    let skillData = []
-    let colorColor = ''
-    if (row.primaryDomain === 0) {
-      skillData = [95, 90, 85, 40, 50, 70]
-      colorColor = '#409EFF'
-    } else if (row.primaryDomain === 1) {
-      skillData = [30, 40, 60, 95, 90, 50]
-      colorColor = '#67C23A'
-    } else {
-      skillData = [88, 85, 80, 85, 82, 85]
-      colorColor = '#E6A23C'
-    }
-    const option = {
-      tooltip: { trigger: 'item' },
-      radar: {
-        indicator: [
-          { name: '编程开发 (Dev)', max: 100 },
-          { name: '算法设计 (Algo)', max: 100 },
-          { name: '数据统计 (Stats)', max: 100 },
-          { name: '临床评估 (Clinical)', max: 100 },
-          { name: '生理基础 (Physio)', max: 100 },
-          { name: '硬件交互 (Hardware)', max: 100 }
-        ],
-        splitNumber: 4,
-        axisName: { color: '#333', fontWeight: 'bold' }
-      },
-      series: [
-        {
-          name: '能力画像',
-          type: 'radar',
-          data: [
-            {
-              value: skillData,
-              name: row.realName,
-              itemStyle: { color: colorColor },
-              areaStyle: { color: colorColor, opacity: 0.3 }
-            }
-          ]
-        }
-      ]
-    }
-    myChart.setOption(option)
-  })
+// --- 辅助工具函数 ---
+const getDomainName = (val) => {
+  return ['计算机科学', '康复医学', '深度交叉'][val] || '未知'
+}
+const getDomainTag = (val) => {
+  return ['', 'success', 'warning'][val] || 'info'
 }
 
-// 弹窗关闭时销毁图表
-const disposeChart = () => {
-  if (myChart) {
-    myChart.dispose()
-    myChart = null
-  }
-}
-
-onMounted(() => { loadData() })
+onMounted(() => {
+  getList()
+})
 </script>
 
 <style scoped>
-.talent-container { padding: 10px; }
-.toolbar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; background-color: #fff; padding: 15px; border-radius: 8px; }
-.search-form .el-form-item { margin-bottom: 0; }
-.pagination-box { margin-top: 20px; display: flex; justify-content: flex-end; }
-.dialog-footer { display: flex; justify-content: flex-end; gap: 10px; }
+.talent-container { padding: 20px; }
+.search-box { margin-bottom: 20px; border-radius: 8px; }
+.action-bar { margin-bottom: 20px; display: flex; gap: 10px; }
+.el-table { border-radius: 8px; box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05); }
+:deep(.el-table__header) { background-color: #f5f7fa !important; }
 </style>
