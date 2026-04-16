@@ -1,29 +1,24 @@
 import axios from 'axios'
 
-// 创建一个 Axios 实例
 const request = axios.create({
-  baseURL: '/api', 
-  timeout: 5000    
+    baseURL: 'http://localhost:8080', // 你的后端地址
+    timeout: 5000
 })
 
-// 🔥 新增：请求拦截器（出门前自动带上通行证）
-request.interceptors.request.use(
-  config => {
-    // 从本地仓库拿出 token
-    const token = localStorage.getItem('token');
+// 🔥 请求拦截器：每次发请求前，都会自动执行这里的代码
+request.interceptors.request.use(config => {
+    // 从浏览器的 localStorage 拿出登录时存的 token
+    const token = localStorage.getItem('token')
+    
+    // 如果 token 存在，就把它塞进请求头里！名字必须跟后端要的一致（咱们后端叫 'token'）
     if (token) {
-      // 🌟 绝杀：严格按照 JWT 国际标准，加上 Bearer 前缀和空格！
-      config.headers['Authorization'] = `Bearer ${token}`; 
-      
-      // 保险起见，把你之前可能自定义的裸 token 头也带上
-      config.headers['token'] = token; 
+        config.headers['token'] = token 
     }
-    return config;
-  },
-  error => {
-    return Promise.reject(error);
-  }
-)
+    
+    return config
+}, error => {
+    return Promise.reject(error)
+})
 
 // 响应拦截器：帮我们自动剥离外层，直接返回后端的数据
 request.interceptors.response.use(

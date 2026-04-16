@@ -67,7 +67,7 @@
           </div>
 
           <div v-else class="match-list" v-loading="isMatching">
-            <el-card v-for="(item, index) in mockResults" :key="index" shadow="hover" class="talent-card">
+            <el-card v-for="(item, index) in matchResults" :key="index" shadow="hover" class="talent-card">
               <div class="card-content">
                 <div class="avatar-box" :class="'rank-' + (index + 1)">
                   Top {{ index + 1 }}
@@ -88,6 +88,7 @@
                 </div>
               </div>
             </el-card>
+            <el-empty v-if="matchResults.length === 0" description="暂无符合条件的人才" />
           </div>
         </el-card>
       </el-col>
@@ -98,6 +99,9 @@
 <script setup>
 import { Aim, MagicStick } from '@element-plus/icons-vue'
 import { ref, reactive } from 'vue'
+// 🔥 新增：引入请求工具和提示框
+import request from '../utils/request'
+import { ElMessage } from 'element-plus'
 
 const isMatching = ref(false)
 const hasMatched = ref(false)
@@ -111,56 +115,60 @@ const weights = reactive({
   hardware: 20
 })
 
-// 模拟的后端计算结果
-const mockResults = ref([])
+// 🔥 接收后端真实计算结果
+const matchResults = ref([])
 
-// 进度条颜色渐变规则
 const getScoreColor = (percentage) => {
-  if (percentage >= 90) return '#67C23A' // 极度匹配：绿色
-  if (percentage >= 80) return '#E6A23C' // 良好匹配：橙色
-  return '#F56C6C' // 一般匹配：红色
+  if (percentage >= 90) return '#67C23A'
+  if (percentage >= 80) return '#E6A23C'
+  return '#F56C6C'
 }
 
-// 触发匹配动作
-const startMatch = () => {
+// 🔥 核心改造：调用后端真实算法接口
+const startMatch = async () => {
   isMatching.value = true
   hasMatched.value = true
   
-  // 模拟请求后端的延迟感 (1.5秒后展示结果)
-  setTimeout(() => {
-    mockResults.value = [
-      { name: '王研究员', domain: '深度交叉', desc: '基于肌电信号的智能康复辅具研发', strongPoints: '算法设计、硬件交互', score: 96 },
-      { name: '潘航宇', domain: '计算机科学', desc: '康复医疗信息系统开发', strongPoints: '编程开发、数据统计', score: 85 },
-      { name: '李医生', domain: '康复医学', desc: '脑卒中上肢运动解码', strongPoints: '临床评估、生理基础', score: 72 }
-    ]
-    isMatching.value = false
-  }, 1500)
+  try {
+    // 把左侧滑块的 weights 参数原封不动地发给后端大厨
+    const res = await request.post('/sys-talent-profile/smart-match', weights)
+    
+    if (res.code === 200) {
+      // 成功拿到后端的余弦相似度排序结果！
+      matchResults.value = res.data
+      ElMessage.success('全息检索完成！')
+    } else {
+      ElMessage.error(res.msg || '检索失败')
+    }
+  } catch (error) {
+    console.error(error)
+    ElMessage.error('服务器连接异常，请检查后端是否启动')
+  } finally {
+    // 加载动画结束
+    // 为了稍微有一点“系统正在疯狂计算”的视觉缓冲感，我们可以加个500毫秒延迟关闭loading
+    setTimeout(() => {
+      isMatching.value = false
+    }, 500)
+  }
 }
 </script>
 
 <style scoped>
+/* 样式部分完全保持不变 */
 .match-container { padding: 10px; }
 .control-panel, .result-panel { min-height: calc(100vh - 170px); border-radius: 8px; }
 .panel-header { display: flex; align-items: center; font-size: 16px; }
-
-/* 拖动条区域样式 */
 .slider-group { margin-bottom: 40px; }
 .slider-item { margin-bottom: 25px; }
 .label-box { display: flex; justify-content: space-between; font-size: 14px; color: #606266; margin-bottom: 10px; font-weight: 500; }
 .weight-val { color: #409EFF; font-weight: bold; }
 .match-btn { width: 100%; border-radius: 8px; font-size: 16px; letter-spacing: 2px; }
-
-/* 结果列表卡片样式 */
 .talent-card { margin-bottom: 15px; border-radius: 8px; }
 .card-content { display: flex; align-items: center; }
-.avatar-box { 
-  width: 60px; height: 60px; border-radius: 8px; display: flex; align-items: center; justify-content: center; 
-  color: white; font-weight: bold; margin-right: 20px; flex-shrink: 0;
-}
+.avatar-box { width: 60px; height: 60px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; margin-right: 20px; flex-shrink: 0; }
 .rank-1 { background: linear-gradient(135deg, #F56C6C, #ff9e9e); box-shadow: 0 4px 10px rgba(245,108,108,0.3); }
 .rank-2 { background: linear-gradient(135deg, #E6A23C, #f3d19e); box-shadow: 0 4px 10px rgba(230,162,60,0.3); }
 .rank-3 { background: linear-gradient(135deg, #409EFF, #8cc5ff); box-shadow: 0 4px 10px rgba(64,158,255,0.3); }
-
 .info-box { flex-grow: 1; }
 .desc { margin: 5px 0; color: #606266; font-size: 14px; }
 .score-box { display: flex; flex-direction: column; align-items: center; margin-left: 20px; }
