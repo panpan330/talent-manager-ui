@@ -27,6 +27,10 @@
             <el-icon><Aim /></el-icon>
             <span>智能人才撮合</span>
           </el-menu-item>
+          <el-menu-item index="/project">
+             <el-icon><Document /></el-icon>
+             <span>项目与需求匹配</span>
+          </el-menu-item>
         </el-menu>
       </el-aside>
 

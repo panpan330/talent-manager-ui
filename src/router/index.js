@@ -32,6 +32,13 @@ const routes = [
         component: () => import('../views/SmartMatch.vue'),
         // 🔥 meta 属性：用来给这个路由打上“需要管理员权限”的标签
         meta: { title: '智能人才撮合', requireAdmin: true }
+      },
+      // ... 你原有的其他路由（如 dashboard, talent 等）
+      {
+        path: 'project',
+        name: 'ProjectManage',
+        component: () => import('../views/ProjectManage.vue'),
+        meta: { title: '项目与需求匹配' }
       }
     ]
   },
