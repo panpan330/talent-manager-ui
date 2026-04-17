@@ -15,22 +15,27 @@
           text-color="#fff"
           active-text-color="#409EFF"
         >
-          <el-menu-item index="/dashboard">
+          <el-menu-item v-if="userRole !== 'student'" index="/dashboard">
             <el-icon><Odometer /></el-icon>
             <span>能力评估看板</span>
           </el-menu-item>
+
+          <el-menu-item v-if="userRole === 'student'" index="/student-dashboard">
+            <el-icon><User /></el-icon>
+            <span>我的个人主页</span>
+          </el-menu-item>
           
-          <el-menu-item index="/talent">
+          <el-menu-item v-if="userRole === 'admin' || userRole === 'expert'" index="/talent">
             <el-icon><User /></el-icon>
             <span>人才档案管理</span>
           </el-menu-item>
           
-          <el-menu-item index="/match">
+          <el-menu-item v-if="userRole === 'admin'" index="/match">
             <el-icon><Cpu /></el-icon>
             <span>智能人才撮合</span>
           </el-menu-item>
 
-          <el-menu-item index="/project">
+          <el-menu-item v-if="userRole === 'admin' || userRole === 'project'" index="/project">
             <el-icon><Management /></el-icon>
             <span>项目与需求匹配</span>
           </el-menu-item>
@@ -38,6 +43,22 @@
           <el-menu-item index="/notice">
             <el-icon><Bell /></el-icon>
             <span>系统消息中心</span>
+          </el-menu-item>
+
+          <!-- 仅管理员可见 -->
+          <el-menu-item v-if="userRole === 'admin'" index="/user">
+            <el-icon><Avatar /></el-icon>
+            <span>系统账号管理</span>
+          </el-menu-item>
+
+          <el-menu-item v-if="userRole === 'admin'" index="/dict">
+            <el-icon><Setting /></el-icon>
+            <span>系统数据字典</span>
+          </el-menu-item>
+
+          <el-menu-item v-if="userRole === 'admin'" index="/log">
+            <el-icon><Document /></el-icon>
+            <span>操作审计日志</span>
           </el-menu-item>
         </el-menu>
       </el-aside>
@@ -51,13 +72,24 @@
             </el-breadcrumb>
           </div>
           <div class="header-right">
-            <el-dropdown>
+            <el-badge :is-dot="hasNewMessage" class="bell-icon" @click="handleOpenMessages" style="cursor: pointer; margin-right: 20px; display: flex; align-items: center;">
+              <el-icon :size="20"><Bell /></el-icon>
+            </el-badge>
+            <el-dropdown trigger="click">
               <span class="user-info">
-                欢迎回来，超级管理员 <el-icon><ArrowDown /></el-icon>
+                <el-avatar :size="28" class="role-avatar">{{ userRole.charAt(0).toUpperCase() }}</el-avatar>
+                欢迎回来，{{ 
+                  userRole === 'admin' ? '超级管理员' : 
+                  userRole === 'expert' ? '教研专家' : 
+                  userRole === 'project' ? '科研/项目方' : '交叉人才(学生)' 
+                }} 
+                <el-icon><ArrowDown /></el-icon>
               </span>
-              <template #footer>
+              <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item @click="handleLogout">退出登录</el-dropdown-item>
+                  <el-dropdown-item @click="handleLogout">
+                    <el-icon><SwitchButton /></el-icon>退出登录
+                  </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -69,19 +101,88 @@
         </el-main>
       </el-container>
     </el-container>
+
+    <!-- 消息通知弹窗 -->
+    <el-dialog title="系统消息通知" v-model="wsDialogVisible" width="500px">
+      <div v-if="wsMessages.length === 0" style="text-align: center; color: #909399; padding: 20px;">
+        暂无新消息
+      </div>
+      <el-timeline v-else>
+        <el-timeline-item v-for="(msg, index) in wsMessages" :key="index" :timestamp="msg.time" placement="top">
+          <el-card shadow="hover">
+            <span style="font-weight: bold; color: #409eff;">{{ msg.content }}</span>
+          </el-card>
+        </el-timeline-item>
+      </el-timeline>
+      <template #footer>
+        <el-button @click="wsMessages = []; wsDialogVisible = false">清空消息</el-button>
+        <el-button type="primary" @click="wsDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { 
   DataAnalysis, Odometer, User, Cpu, 
-  Management, Bell, ArrowDown 
+  Management, Bell, ArrowDown, SwitchButton, Avatar, Setting, Document
 } from '@element-plus/icons-vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessageBox, ElMessage, ElNotification } from 'element-plus'
 
 const route = useRoute()
 const router = useRouter()
+const userRole = ref(localStorage.getItem('role') || 'user')
+
+// --- WebSocket 消息通知逻辑 ---
+const hasNewMessage = ref(false)
+const wsMessages = ref([])
+const wsDialogVisible = ref(false)
+let ws = null
+
+const initWebSocket = () => {
+  const userId = localStorage.getItem('userId')
+  if (!userId) return
+
+  const wsUrl = `ws://localhost:8080/ws/notify/${userId}`
+  ws = new WebSocket(wsUrl)
+
+  ws.onopen = () => {
+    console.log('WebSocket 连接成功')
+  }
+
+  ws.onmessage = (event) => {
+    const msg = event.data
+    wsMessages.value.unshift({ time: new Date().toLocaleString(), content: msg })
+    hasNewMessage.value = true
+    
+    // 右下角弹窗提醒
+    ElNotification({
+      title: '您有一条新消息',
+      message: msg,
+      type: 'success',
+      position: 'bottom-right'
+    })
+  }
+
+  ws.onerror = (e) => {
+    console.error('WebSocket 错误', e)
+  }
+}
+
+const handleOpenMessages = () => {
+  hasNewMessage.value = false
+  wsDialogVisible.value = true
+}
+
+onMounted(() => {
+  initWebSocket()
+})
+
+onUnmounted(() => {
+  if (ws) ws.close()
+})
 
 // 退出登录
 const handleLogout = () => {
@@ -91,7 +192,10 @@ const handleLogout = () => {
     type: 'warning'
   }).then(() => {
     localStorage.clear() // 清除 Token 和 Role
+    ElMessage.success('已安全退出')
     router.push('/login')
+  }).catch(() => {
+    // 用户取消退出
   })
 }
 </script>
@@ -139,9 +243,18 @@ const handleLogout = () => {
 }
 
 .user-info {
+  display: flex;
+  align-items: center;
   cursor: pointer;
   color: #606266;
   font-size: 14px;
+  gap: 8px;
+}
+
+.role-avatar {
+  background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+  color: #fff;
+  font-weight: bold;
 }
 
 .main {

@@ -12,13 +12,22 @@ const routes = [
     path: '/',
     name: 'layout',
     component: () => import('../views/LayoutView.vue'),
-    redirect: '/dashboard', // 访问根目录自动跳转到数据看板
+    redirect: () => {
+      // 动态判断，如果是学生则跳转到学生专属主页，否则去全局数据大屏
+      return localStorage.getItem('role') === 'student' ? '/student-dashboard' : '/dashboard'
+    },
     children: [
       {
         path: 'dashboard',
         name: 'dashboard',
         component: () => import('../views/DashboardView.vue'),
         meta: { title: '数据大屏看板' }
+      },
+      {
+        path: 'student-dashboard',
+        name: 'student-dashboard',
+        component: () => import('../views/StudentDashboard.vue'),
+        meta: { title: '我的个人主页' }
       },
       {
         path: 'talent',
@@ -33,14 +42,37 @@ const routes = [
         // 🔥 meta 属性：用来给这个路由打上“需要管理员权限”的标签
         meta: { title: '智能人才撮合', requireAdmin: true }
       },
-      // ... 你原有的其他路由（如 dashboard, talent 等）
       {
         path: 'project',
         name: 'ProjectManage',
         component: () => import('../views/ProjectManage.vue'),
         meta: { title: '项目与需求匹配' }
-      }
-    ]
+      },
+      {
+        path: 'user',
+        name: 'UserManage',
+        component: () => import('../views/UserManage.vue'),
+        meta: { title: '系统账号管理', requireAdmin: true }
+      },
+      {
+        path: 'notice',
+        name: 'notice',
+        component: () => import('../views/NoticeView.vue'),
+        meta: { title: '系统消息中心' }
+      },
+      {
+          path: 'dict',
+          name: 'DictManage',
+          component: () => import('../views/DictManage.vue'),
+          meta: { title: '系统数据字典', requireAdmin: true }
+        },
+        {
+          path: 'log',
+          name: 'LogView',
+          component: () => import('../views/LogView.vue'),
+          meta: { title: '系统安全与审计日志', requireAdmin: true }
+        }
+      ]
   },
   {
     // 捕获所有不存在的路由，跳转到首页 (或者你可以自己写个 404 页面)
@@ -79,8 +111,8 @@ router.beforeEach((to, from) => {
   // 3. 🔥 RBAC (基于角色的权限控制) 核心拦截
   // 如果去的页面需要管理员权限，但当前用户不是 admin，踢回首页
   if (to.meta.requireAdmin && role !== 'admin') {
-    alert('⚠️ 越权访问拦截：您的权限不足以查看【智能人才撮合】页面！')
-    return '/dashboard' 
+    alert('⚠️ 越权访问拦截：您的权限不足以查看该页面！')
+    return role === 'student' ? '/student-dashboard' : '/dashboard' 
   }
 
   // 4. 全部检查通过，什么都不返回，Vue Router 会默认放行

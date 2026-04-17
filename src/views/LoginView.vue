@@ -48,6 +48,15 @@ function triggerError() {
   errorTimer = window.setTimeout(() => { isLoginError.value = false }, 2200)
 }
 
+function handleForgotPwd() {
+  ElMessage({
+    message: '为了系统安全，重置密码请联系管理员：admin@rehab-system.com',
+    type: 'warning',
+    duration: 5000,
+    showClose: true
+  })
+}
+
 // 注意前面加了 async 关键字
 async function handleLogin() {
   clearFormErrors()
@@ -66,14 +75,21 @@ async function handleLogin() {
     })
 
     if (res.code === 200) {
-      ElMessage.success('登录成功！欢迎回来。')
-      localStorage.setItem('token', res.data)
+      // 从后端返回的 Map 中提取信息并存储
+      localStorage.setItem('token', res.data.token)
+      localStorage.setItem('role', res.data.role)
+      localStorage.setItem('username', res.data.username)
+      localStorage.setItem('realName', res.data.realName)
+      localStorage.setItem('userId', res.data.userId)
       
-      // 🔥 新增：根据输入的账号，发放不同的身份牌！
-      // 咱们先简单模拟：如果账号输入的是 admin，就是超级管理员；其他都是普通用户
-      const role = username.value === 'admin' ? 'admin' : 'user'
-      localStorage.setItem('role', role) 
+      // 如果是学生，把他的 talentId 存起来，方便学生端页面调用
+      if (res.data.role === 'student' && res.data.talentId) {
+        localStorage.setItem('talentId', res.data.talentId)
+      }
+
+      ElMessage.success(`欢迎回来，${res.data.realName || res.data.username}`)
       
+      // 跳转到首页
       router.push('/')
     } else {
       // 密码错误等业务报错（后端返回 500 等）
@@ -158,7 +174,7 @@ watch([username, password], () => {
                 </span>
                 <span>保持登录状态</span>
               </label>
-              <a href="javascript:void(0)" class="forgot-link">忘记密码?</a>
+              <a href="javascript:void(0)" class="forgot-link" @click="handleForgotPwd">忘记密码?</a>
             </div>
 
             <button class="login-btn" type="button" @click="handleLogin">进入系统</button>
